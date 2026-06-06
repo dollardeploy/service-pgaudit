@@ -17,21 +17,21 @@ What it does:
 4. Runs `CREATE EXTENSION IF NOT EXISTS pgaudit` in the configured databases.
 
 It is idempotent: if `pgaudit.so` is already installed the build is skipped
-unless `PGAUDIT_FORCE_INSTALL=1`.
+unless `POSTGRES_AUDIT_FORCE_INSTALL=1`.
 
 ## Settings (override via host/service env vars)
 
 | Env var                      | Default                            | Description                                                           |
 | ---------------------------- | ---------------------------------- | --------------------------------------------------------------------- |
-| `PGAUDIT_LOG`                | `ddl, write`                       | Audit classes: `read,write,function,role,ddl,misc,misc_set,all,none`. |
-| `PGAUDIT_LOG_CATALOG`        | `off`                              | Log statements against the system catalog.                            |
-| `PGAUDIT_LOG_PARAMETER`      | `off`                              | Include statement parameters in the log.                              |
-| `PGAUDIT_LOG_RELATION`       | `off`                              | Separate log entry per relation in a statement.                       |
-| `PGAUDIT_LOG_STATEMENT_ONCE` | `off`                              | Log statement text only once per session.                             |
-| `PGAUDIT_LOG_LEVEL`          | `log`                              | Log level for audit entries.                                          |
-| `PGAUDIT_DATABASES`          | `POSTGRES_DATABASES` or `postgres` | Databases to create the extension in.                                 |
-| `PGAUDIT_REF`                | `REL_<major>_STABLE`               | Pin a specific pgAudit branch/tag.                                    |
-| `PGAUDIT_FORCE_INSTALL`      | `0`                                | Force rebuild/reconfigure.                                            |
+| `POSTGRES_AUDIT_LOG`                | `ddl, write`                       | Audit classes: `read,write,function,role,ddl,misc,misc_set,all,none`. |
+| `POSTGRES_AUDIT_LOG_CATALOG`        | `off`                              | Log statements against the system catalog.                            |
+| `POSTGRES_AUDIT_LOG_PARAMETER`      | `off`                              | Include statement parameters in the log.                              |
+| `POSTGRES_AUDIT_LOG_RELATION`       | `off`                              | Separate log entry per relation in a statement.                       |
+| `POSTGRES_AUDIT_LOG_STATEMENT_ONCE` | `off`                              | Log statement text only once per session.                             |
+| `POSTGRES_AUDIT_LOG_LEVEL`          | `log`                              | Log level for audit entries.                                          |
+| `POSTGRES_AUDIT_DATABASES`          | `POSTGRES_DATABASES` or `postgres` | Databases to create the extension in.                                 |
+| `POSTGRES_AUDIT_REF`                | `REL_<major>_STABLE`               | Pin a specific pgAudit branch/tag.                                    |
+| `POSTGRES_AUDIT_FORCE_INSTALL`      | `0`                                | Force rebuild/reconfigure.                                            |
 
 ## Required app changes
 

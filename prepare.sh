@@ -26,20 +26,20 @@ set -euo pipefail
 # --- Overridable settings (set as host/service env vars) --------------------
 # Audit classes to log, comma separated. Valid: read, write, function, role,
 # ddl, misc, misc_set, all, none. See the pgAudit README for details.
-PGAUDIT_LOG="${PGAUDIT_LOG:-ddl, write}"
-PGAUDIT_LOG_CATALOG="${PGAUDIT_LOG_CATALOG:-off}"
-PGAUDIT_LOG_PARAMETER="${PGAUDIT_LOG_PARAMETER:-off}"
-PGAUDIT_LOG_RELATION="${PGAUDIT_LOG_RELATION:-off}"
-PGAUDIT_LOG_STATEMENT_ONCE="${PGAUDIT_LOG_STATEMENT_ONCE:-off}"
-PGAUDIT_LOG_LEVEL="${PGAUDIT_LOG_LEVEL:-log}"
+POSTGRES_AUDIT_LOG="${POSTGRES_AUDIT_LOG:-ddl, write}"
+POSTGRES_AUDIT_LOG_CATALOG="${POSTGRES_AUDIT_LOG_CATALOG:-off}"
+POSTGRES_AUDIT_LOG_PARAMETER="${POSTGRES_AUDIT_LOG_PARAMETER:-off}"
+POSTGRES_AUDIT_LOG_RELATION="${POSTGRES_AUDIT_LOG_RELATION:-off}"
+POSTGRES_AUDIT_LOG_STATEMENT_ONCE="${POSTGRES_AUDIT_LOG_STATEMENT_ONCE:-off}"
+POSTGRES_AUDIT_LOG_LEVEL="${POSTGRES_AUDIT_LOG_LEVEL:-log}"
 # Databases to CREATE EXTENSION pgaudit in. Defaults to the databases the
 # postgres service was configured with, falling back to "postgres".
-PGAUDIT_DATABASES="${PGAUDIT_DATABASES:-${POSTGRES_DATABASES:-postgres}}"
+POSTGRES_AUDIT_DATABASES="${POSTGRES_AUDIT_DATABASES:-${POSTGRES_DATABASES:-postgres}}"
 # Pin a specific pgAudit git ref (branch or tag). Auto-detected per PostgreSQL
 # major version when empty (REL_<major>_STABLE).
-PGAUDIT_REF="${PGAUDIT_REF:-}"
+POSTGRES_AUDIT_REF="${POSTGRES_AUDIT_REF:-}"
 # Rebuild / reconfigure even if pgAudit is already installed.
-PGAUDIT_FORCE_INSTALL="${PGAUDIT_FORCE_INSTALL:-0}"
+POSTGRES_AUDIT_FORCE_INSTALL="${POSTGRES_AUDIT_FORCE_INSTALL:-0}"
 # ---------------------------------------------------------------------------
 
 # Privilege escalation, mirrors the parent script.
@@ -71,8 +71,8 @@ echo "pgAudit: detected PostgreSQL major version ${PG_MAJOR}"
 PG_CONFIG="/usr/lib/postgresql/${PG_MAJOR}/bin/pg_config"
 
 # Default the pgAudit ref to the stable branch matching the server major.
-if [ -z "${PGAUDIT_REF}" ]; then
-  PGAUDIT_REF="REL_${PG_MAJOR}_STABLE"
+if [ -z "${POSTGRES_AUDIT_REF}" ]; then
+  POSTGRES_AUDIT_REF="REL_${PG_MAJOR}_STABLE"
 fi
 
 # --- Build & install pgAudit from source -----------------------------------
@@ -81,7 +81,7 @@ if [ -x "${PG_CONFIG}" ]; then
   PKGLIBDIR="$(${PG_CONFIG} --pkglibdir)"
 fi
 
-if [ "${PGAUDIT_FORCE_INSTALL}" != "1" ] && [ -n "${PKGLIBDIR}" ] && [ -f "${PKGLIBDIR}/pgaudit.so" ]; then
+if [ "${POSTGRES_AUDIT_FORCE_INSTALL}" != "1" ] && [ -n "${PKGLIBDIR}" ] && [ -f "${PKGLIBDIR}/pgaudit.so" ]; then
   echo "pgAudit: pgaudit.so already installed in ${PKGLIBDIR}, skipping build"
 else
   echo "pgAudit: installing build dependencies"
@@ -101,8 +101,8 @@ else
 
   BUILD_DIR="$(mktemp -d /tmp/pgaudit-XXXXXX)"
   trap 'rm -rf "${BUILD_DIR}"' EXIT
-  echo "pgAudit: cloning pgaudit ${PGAUDIT_REF}"
-  git clone --depth 1 --branch "${PGAUDIT_REF}" https://github.com/pgaudit/pgaudit.git "${BUILD_DIR}/pgaudit"
+  echo "pgAudit: cloning pgaudit ${POSTGRES_AUDIT_REF}"
+  git clone --depth 1 --branch "${POSTGRES_AUDIT_REF}" https://github.com/pgaudit/pgaudit.git "${BUILD_DIR}/pgaudit"
 
   echo "pgAudit: building against ${PG_CONFIG}"
   make -C "${BUILD_DIR}/pgaudit" USE_PGXS=1 PG_CONFIG="${PG_CONFIG}"
@@ -156,12 +156,12 @@ pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _dat
 
   echo "pgAudit: configuring cluster ${ver}/${cluster} (port ${port})"
   append_preload_library "${conf}" "pgaudit"
-  conf_upsert "${conf}" "pgaudit.log" "'${PGAUDIT_LOG}'"
-  conf_upsert "${conf}" "pgaudit.log_catalog" "${PGAUDIT_LOG_CATALOG}"
-  conf_upsert "${conf}" "pgaudit.log_parameter" "${PGAUDIT_LOG_PARAMETER}"
-  conf_upsert "${conf}" "pgaudit.log_relation" "${PGAUDIT_LOG_RELATION}"
-  conf_upsert "${conf}" "pgaudit.log_statement_once" "${PGAUDIT_LOG_STATEMENT_ONCE}"
-  conf_upsert "${conf}" "pgaudit.log_level" "${PGAUDIT_LOG_LEVEL}"
+  conf_upsert "${conf}" "pgaudit.log" "'${POSTGRES_AUDIT_LOG}'"
+  conf_upsert "${conf}" "pgaudit.log_catalog" "${POSTGRES_AUDIT_LOG_CATALOG}"
+  conf_upsert "${conf}" "pgaudit.log_parameter" "${POSTGRES_AUDIT_LOG_PARAMETER}"
+  conf_upsert "${conf}" "pgaudit.log_relation" "${POSTGRES_AUDIT_LOG_RELATION}"
+  conf_upsert "${conf}" "pgaudit.log_statement_once" "${POSTGRES_AUDIT_LOG_STATEMENT_ONCE}"
+  conf_upsert "${conf}" "pgaudit.log_level" "${POSTGRES_AUDIT_LOG_LEVEL}"
 
   # shared_preload_libraries only takes effect after a restart.
   echo "pgAudit: restarting cluster ${ver}/${cluster}"
@@ -170,7 +170,7 @@ pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _dat
     || $run systemctl restart "postgresql@${ver}-${cluster}"
 
   # Create the extension in each configured database.
-  IFS=', ' read -ra databases <<< "${PGAUDIT_DATABASES}"
+  IFS=', ' read -ra databases <<< "${POSTGRES_AUDIT_DATABASES}"
   for db in "${databases[@]}"; do
     [ -n "${db}" ] || continue
     echo "pgAudit: creating extension in database '${db}'"
@@ -185,9 +185,9 @@ done
 # Record the installed pgAudit ref back into the service env and turn the force
 # flag off so subsequent prepares are idempotent. These lines are picked up by
 # the host output listener (see lib/queue/outputListener.ts).
-echo "{{env:SERVICE_CUSTOM_PGAUDIT_REF:${PGAUDIT_REF}}}"
-if [ "${PGAUDIT_FORCE_INSTALL}" == "1" ]; then
-  echo "{{env:PGAUDIT_FORCE_INSTALL:0}}"
+echo "{{env:SERVICE_CUSTOM_POSTGRES_AUDIT_REF:${POSTGRES_AUDIT_REF}}}"
+if [ "${POSTGRES_AUDIT_FORCE_INSTALL}" == "1" ]; then
+  echo "{{env:POSTGRES_AUDIT_FORCE_INSTALL:0}}"
 fi
 
 echo "pgAudit: done"
