@@ -7,19 +7,6 @@
 # enables it through shared_preload_libraries, applies (overridable) audit
 # settings and creates the extension in the configured databases.
 #
-# It is fetched and executed by the main scripts/prepare.sh through the
-# PREPARE_URL mechanism:
-#
-#   if [ -n "$PREPARE_URL" ]; then
-#     curl -fsSL -o "$PREPARE_SCRIPT" "$PREPARE_URL"
-#     bash "$PREPARE_SCRIPT"
-#   fi
-#
-# Because it runs as a standalone `bash` process it does NOT share the helper
-# functions ($run, conf_upsert, install_missing, ...) of the parent script, so
-# everything it needs is (re)defined here. Environment variables exported by the
-# parent script (the host/service env injected via #DEPLOYENV#) are inherited and
-# used to override defaults below.
 
 set -euo pipefail
 
@@ -201,12 +188,16 @@ pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _dat
   fi
 done
 
-# Record the installed pgAudit ref back into the service env and turn the force
-# flag off so subsequent prepares are idempotent. These lines are picked up by
-# the host output listener (see lib/queue/outputListener.ts).
-echo "{{env:SERVICE_CUSTOM_POSTGRES_AUDIT_REF:${POSTGRES_AUDIT_REF}}}"
-if [ "${POSTGRES_AUDIT_FORCE_INSTALL}" == "1" ]; then
-  echo "{{env:POSTGRES_AUDIT_FORCE_INSTALL:0}}"
+if [ -n "${SERVICE_ID}"]; then
+  # Record the installed pgAudit ref back into the service env and turn the force
+  # flag off so subsequent prepares are idempotent. These lines are picked up by
+  # the host output listener (see lib/queue/outputListener.ts).
+  echo "{{env:SERVICE_CUSTOM_${SERVICE_ID}_REF:${POSTGRES_AUDIT_REF}}}"
+  
+  # Goes into host env
+  if [ "${POSTGRES_AUDIT_FORCE_INSTALL}" == "1" ]; then
+    echo "{{env:POSTGRES_AUDIT_FORCE_INSTALL:0}}"
+  fi
 fi
 
 echo "pgAudit: done"
