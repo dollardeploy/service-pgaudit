@@ -31,7 +31,13 @@ POSTGRES_AUDIT_LOG_CATALOG="${POSTGRES_AUDIT_LOG_CATALOG:-off}"
 POSTGRES_AUDIT_LOG_PARAMETER="${POSTGRES_AUDIT_LOG_PARAMETER:-off}"
 POSTGRES_AUDIT_LOG_RELATION="${POSTGRES_AUDIT_LOG_RELATION:-off}"
 POSTGRES_AUDIT_LOG_STATEMENT_ONCE="${POSTGRES_AUDIT_LOG_STATEMENT_ONCE:-off}"
+# pgAudit emits audit records to the standard Postgres server log, NOT to its
+# own files. log_level only matters when log_client is on.
 POSTGRES_AUDIT_LOG_LEVEL="${POSTGRES_AUDIT_LOG_LEVEL:-log}"
+POSTGRES_AUDIT_LOG_CLIENT="${POSTGRES_AUDIT_LOG_CLIENT:-off}"
+# Postgres log_line_prefix so each audit line carries time/user/db/pid context
+# (pgAudit's recommended prefix). Set to empty to leave the cluster default.
+POSTGRES_AUDIT_LOG_LINE_PREFIX="${POSTGRES_AUDIT_LOG_LINE_PREFIX-%m %u %d [%p]: }"
 # Databases to CREATE EXTENSION pgaudit in. Defaults to the databases the
 # postgres service was configured with, falling back to "postgres".
 POSTGRES_AUDIT_DATABASES="${POSTGRES_AUDIT_DATABASES:-${POSTGRES_DATABASES:-postgres}}"
@@ -146,7 +152,7 @@ function conf_upsert() {
 }
 
 # Only configure clusters whose major version matches the library we built.
-pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _datadir _rest; do
+pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _datadir logfile; do
   [ "${ver}" = "${PG_MAJOR}" ] || continue
   conf="/etc/postgresql/${ver}/${cluster}/postgresql.conf"
   if [ ! -f "${conf}" ]; then
@@ -162,6 +168,10 @@ pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _dat
   conf_upsert "${conf}" "pgaudit.log_relation" "${POSTGRES_AUDIT_LOG_RELATION}"
   conf_upsert "${conf}" "pgaudit.log_statement_once" "${POSTGRES_AUDIT_LOG_STATEMENT_ONCE}"
   conf_upsert "${conf}" "pgaudit.log_level" "${POSTGRES_AUDIT_LOG_LEVEL}"
+  conf_upsert "${conf}" "pgaudit.log_client" "${POSTGRES_AUDIT_LOG_CLIENT}"
+  if [ -n "${POSTGRES_AUDIT_LOG_LINE_PREFIX}" ]; then
+    conf_upsert "${conf}" "log_line_prefix" "'${POSTGRES_AUDIT_LOG_LINE_PREFIX}'"
+  fi
 
   # shared_preload_libraries only takes effect after a restart.
   echo "pgAudit: restarting cluster ${ver}/${cluster}"
@@ -180,6 +190,15 @@ pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _dat
       $runaspostgres psql -p "${port}" -d "${db}" -c "CREATE EXTENSION IF NOT EXISTS pgaudit;" || true
     fi
   done
+
+  # pgAudit writes to the standard Postgres server log, so audit records land
+  # wherever this cluster logs (on Debian/Ubuntu pg_ctlcluster redirects stderr
+  # to /var/log/postgresql/...). Report it so it is easy to find / ship.
+  if [ -n "${logfile}" ] && [ "${logfile}" != "-" ]; then
+    echo "pgAudit: audit records for ${ver}/${cluster} go to the Postgres log: ${logfile}"
+  else
+    echo "pgAudit: audit records for ${ver}/${cluster} go to the Postgres log (default /var/log/postgresql/postgresql-${ver}-${cluster}.log)"
+  fi
 done
 
 # Record the installed pgAudit ref back into the service env and turn the force
