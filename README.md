@@ -48,6 +48,14 @@ unless `POSTGRES_AUDIT_FORCE_INSTALL=1`.
 | `POSTGRES_AUDIT_REF`                | `REL_<major>_STABLE`               | Pin a specific pgAudit branch/tag.                                    |
 | `POSTGRES_AUDIT_FORCE_INSTALL`      | `0`                                | Force rebuild/reconfigure.                                            |
 
+## Uninstall
+
+Remove the service from the host's **Services** tab. DollarDeploy runs
+`uninstall.sh`, which drops the extension from the databases, removes `pgaudit`
+from `shared_preload_libraries` and the `pgaudit.*` settings, restarts the
+cluster(s) and deletes the compiled extension files. Set
+`POSTGRES_AUDIT_REMOVE_FILES=0` to keep `pgaudit.so` on disk.
+
 ## Where do the audit logs go?
 
 pgAudit does **not** write its own files — it emits records to PostgreSQL's
