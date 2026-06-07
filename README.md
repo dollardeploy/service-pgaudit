@@ -3,8 +3,21 @@
 Custom DollarDeploy service that enables PostgreSQL auditing with
 [pgAudit](https://github.com/pgaudit/pgaudit).
 
-`prepare.sh` is run by the host's main `scripts/prepare.sh` via the `PREPARE_URL`
-mechanism. It runs as a standalone script, so it is fully self-contained.
+DollarDeploy clones this repo to `$APPDIR/services/<name>` and runs its
+`prepare.sh` during the host's prepare run. The script is self-contained.
+
+## Install
+
+1. Open the app and go to your **Host**.
+2. Open the **Services** tab.
+3. Click **Add service** and choose **Custom**.
+4. Paste the repo URL: `https://github.com/dollardeploy/service-pgaudit/`
+5. Save, then **Prepare** the host. DollarDeploy clones the repo and runs
+   `prepare.sh`, which builds and enables pgAudit on the host's PostgreSQL.
+
+> Requires a PostgreSQL service already on the host — pgAudit attaches to the
+> existing cluster. Tweak behaviour with the env vars below (set them as host or
+> service env vars).
 
 What it does:
 
@@ -45,19 +58,3 @@ DollarDeploy provisions, `pg_ctlcluster` redirects stderr to
 out of the box (the script prints the exact path it detects). To collect them
 elsewhere, configure Postgres logging (e.g. `logging_collector`, `csvlog`/
 `jsonlog`) or ship that log file with your log agent.
-
-## Required app changes
-
-This service relies on the new `custom` service type (`Service.customUrl`). For
-it to work end-to-end the app must:
-
-1. **Set `PREPARE_URL` from the custom service's `customUrl`** when building the
-   prepare env in `lib/queue/prepareHost.ts` (so the main script downloads and
-   runs this script). Today `PREPARE_URL` is never populated.
-2. **Skip `install_/remove_` for `custom` services** in `scripts/prepare.sh`
-   (the loops at the bottom call `install_$service`, which would `exit 1` for
-   `custom`). Either exclude `custom` from `USER_SERVICES` when building it in
-   `prepareHost.ts`, or add no-op `install_custom`/`remove_custom` functions.
-3. **Support more than one custom service** if needed — `PREPARE_URL` is a single
-   value, so multiple custom services would need a list (e.g. run each
-   `customUrl` in turn).

@@ -7,6 +7,10 @@
 # enables it through shared_preload_libraries, applies (overridable) audit
 # settings and creates the extension in the configured databases.
 #
+# DollarDeploy clones this repo to $APPDIR/services/<name> and runs this script
+# as the app user (via sudo) with SERVICE_ID set, during the host's prepare run.
+# It is self-contained and inherits the host/service env vars (exported through
+# the main prepare.sh) to override the defaults below.
 
 set -euo pipefail
 
@@ -188,7 +192,7 @@ pg_lsclusters -h 2>/dev/null | while read -r ver cluster port status _owner _dat
   fi
 done
 
-if [ -n "${SERVICE_ID}"]; then
+if [ -n "${SERVICE_ID:-}" ]; then
   # Record the installed pgAudit ref back into the service env and turn the force
   # flag off so subsequent prepares are idempotent. These lines are picked up by
   # the host output listener (see lib/queue/outputListener.ts).
