@@ -196,7 +196,7 @@ if [ -n "${SERVICE_ID:-}" ]; then
   # Record the installed pgAudit ref back into the service env and turn the force
   # flag off so subsequent prepares are idempotent. These lines are picked up by
   # the host output listener (see lib/queue/outputListener.ts).
-  echo "{{env:SERVICE_CUSTOM_${SERVICE_ID}_REF:${POSTGRES_AUDIT_REF}}}"
+  echo "{{env:SERVICE_CUSTOM_${SERVICE_ID}_POSTGRES_AUDIT_REF:${POSTGRES_AUDIT_REF}}}"
   
   # Goes into host env
   if [ "${POSTGRES_AUDIT_FORCE_INSTALL}" == "1" ]; then
