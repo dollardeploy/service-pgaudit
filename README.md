@@ -3,7 +3,7 @@
 Custom DollarDeploy service that enables PostgreSQL auditing with
 [pgAudit](https://github.com/pgaudit/pgaudit).
 
-DollarDeploy clones this repo to `$APPDIR/services/<name>` and runs its
+DollarDeploy clones this repo to `$APPDIR/services/pgaudit` and runs its
 `prepare.sh` during the host's prepare run. The script is self-contained.
 
 ## Install
